@@ -104,22 +104,29 @@ fi
 ### Shell specific configurations ###
 if [ "$PROFILERATE_SHELL" = "zsh" ]; then
   autoload -U colors && colors 2>/dev/null
+  setopt PROMPT_SUBST
   if [ "${PROFILERATE_LOGO:-}" = " " ]
   then
     LOGO_PS1="$PROFILERATE_LOGO"
   else
     LOGO_PS1="%{$fg[red]%}${PROFILERATE_LOGO:-"󱚟 "}"
   fi
-  export PS1="${LOGO_PS1}%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/\$(git_prompt_info)%{$reset_color%}%(!.#.$) "
+  PROMPT="${LOGO_PS1}%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%~"
+  if command -v "git_prompt_info" >/dev/null
+  then
+    PROMPT="$PROMPT\$(git_prompt_info)"
+  fi
+  PROMPT="$PROMPT%{$reset_color%}%(!.#.$) "
+  export PS1=$PROMPT
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
   if [ "${PROFILERATE_LOGO:-}" = " " ]
   then
-    LOGO_PS1="%{$fg[white]%}$PROFILERATE_LOGO"
+    LOGO_PS1="\[\e[0;0m\]$PROFILERATE_LOGO"
   else
     LOGO_PS1="\[\e[0;91m\]${PROFILERATE_LOGO:-"󱚟 "}"
   fi
-  export PS1="${LOGO_PS1}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
+  export PS1="${LOGO_PS1}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\H\[\e[0;97m\]:\[\e[0;92m\]\w\[\e[0m\]$ "
 else
-  export PS1='${PROFILERATE_LOGO:-}${USER:=$(whoami 2>/dev/null || echo who-am-i)}@${HOSTNAME:=$(hostname)}:$PWD\$ '
+  export PS1='${PROFILERATE_LOGO:-}[96m${USER:=$(whoami 2>/dev/null || echo who-am-i)}[97m@[93m${HOSTNAME:=$(hostname)}[97m:[92m$PWD[0m\$ '
 fi
 
