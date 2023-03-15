@@ -1,6 +1,7 @@
 # Debugging for profilerate
 if [ -w "/dev/stderr" ]; then
-  export _PROFILERATE_STDERR=/dev/stderr
+  #export _PROFILERATE_STDERR=/dev/stderr
+  :
 fi
 
 # Debug
@@ -17,6 +18,9 @@ if [ ! "$PROFILERATE_SHELL" = "zsh" ] && [ ! "$PROFILERATE_SHELL" = "bash" ]; th
     echo "Bash worked, but ignoring"
   fi
 fi
+
+# Used by some applications to store configs. Standardize this (macs are silly)
+export XDG_CONFIG_HOME="$HOME/.config"
 
 if [ -n "$(command -v bindkey)" ]
 then
@@ -66,10 +70,10 @@ then
   alias cat="bat"
 fi
 
-# use dust instead of du
-if [ -n "$(command -v dust)" ]
+# use erdtree instead of du
+if [ -n "$(command -v et)" ]
 then
-  alias du="dust"
+  alias du="et -s size-rev"
 fi
 
 # use delta instead of diff
@@ -100,9 +104,21 @@ fi
 ### Shell specific configurations ###
 if [ "$PROFILERATE_SHELL" = "zsh" ]; then
   autoload -U colors && colors 2>/dev/null
-  export PS1="${PROFILERATE_LOGO:-}%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/%{$reset_color%}%(!.#.$) "
+  if [ "${PROFILERATE_LOGO:-}" = " " ]
+  then
+    LOGO_PS1="$PROFILERATE_LOGO"
+  else
+    LOGO_PS1="%{$fg[red]%}${PROFILERATE_LOGO:-"󱚟 "}"
+  fi
+  export PS1="${LOGO_PS1}%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/\$(git_prompt_info)%{$reset_color%}%(!.#.$) "
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
-  export PS1="${PROFILERATE_LOGO:-}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
+  if [ "${PROFILERATE_LOGO:-}" = " " ]
+  then
+    LOGO_PS1="%{$fg[white]%}$PROFILERATE_LOGO"
+  else
+    LOGO_PS1="\[\e[0;91m\]${PROFILERATE_LOGO:-"󱚟 "}"
+  fi
+  export PS1="${LOGO_PS1}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
 else
   export PS1='${PROFILERATE_LOGO:-}${USER:=$(whoami 2>/dev/null || echo who-am-i)}@${HOSTNAME:=$(hostname)}:$PWD\$ '
 fi
