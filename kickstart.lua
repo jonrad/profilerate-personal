@@ -323,6 +323,11 @@ vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = "Go to next diagnos
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = "Open floating diagnostic message" })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
 
+vim.diagnostic.config({
+  virtual_text = false,
+  update_in_insert = true
+})
+
 -- LSP settings.
 --  This function gets run when an LSP connects to a particular buffer.
 local on_attach = function(_, bufnr)
@@ -373,12 +378,16 @@ end
 --
 --  Add any additional override configuration in the following tables. They will be passed to
 --  the `settings` field of the server config. You must look up that documentation yourself.
+
 local servers = {
-  -- clangd = {},
-  -- gopls = {},
-  -- pyright = {},
-  -- rust_analyzer = {},
-  -- tsserver = {},
+  bashls = {},
+  omnisharp = {},
+  cssls = {},
+  dockerls = {},
+  eslint = {},
+  html = {},
+  jsonls = {},
+  tsserver = {},
 
   lua_ls = {
     Lua = {
