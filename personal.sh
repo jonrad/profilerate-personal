@@ -1,6 +1,6 @@
 # profilerate aliases
-alias de="profilerate_docker_exec"
-alias dr="profilerate_docker_run"
+alias de="profilerate_docker_exec -e 'PROFILERATE_LOGO= '"
+alias dr="profilerate_docker_run -e 'PROFILERATE_LOGO= '"
 alias ke="profilerate_kubectl_exec"
 alias s="profilerate_ssh"
 
@@ -57,14 +57,22 @@ fi
 # Reset kitty term
 export TERM=xterm
 
+if [ -n "$KUBERNETES_SERVICE_HOST" ]
+then
+  export PROFILERATE_LOGO="󱃾 "
+elif [ -n "$SSH_CLIENT"  ]
+then
+  export PROFILERATE_LOGO="󰣀 "
+fi
+
 ### Shell specific configurations ###
 if [ "$PROFILERATE_SHELL" = "zsh" ]; then
   autoload -U colors && colors
-  export PS1="%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/%{$reset_color%}%(!.#.$) "
+  export PS1="${PROFILERATE_LOGO:-}%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/%{$reset_color%}%(!.#.$) "
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
-  export PS1="\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
+  export PS1="${PROFILERATE_LOGO:-}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
 else
-  export PS1='${USER:=$(whoami)}@${HOSTNAME:=$(hostname)}:$PWD\$ '
+  export PS1='${PROFILERATE_LOGO:-}${USER:=$(whoami)}@${HOSTNAME:=$(hostname)}:$PWD\$ '
 fi
 
 # Debug
