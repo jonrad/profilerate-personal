@@ -4,7 +4,7 @@ if [ -w "/dev/stderr" ]; then
   :
 fi
 
-# Debug
+# Debugging for profilerate
 echo "Shell: ${PROFILERATE_SHELL}@${SHLVL}"
 echo "Profilerate Dir: ${PROFILERATE_DIR}"
 
@@ -15,7 +15,7 @@ if [ ! "$PROFILERATE_SHELL" = "zsh" ] && [ ! "$PROFILERATE_SHELL" = "bash" ]; th
     # echo "Installed and switching to bash"
     # export PATH="$PATH:$PROFILERATE_DIR/bin"
     # PROFILERATE_SHELL="bash" exec $PROFILERATE_DIR/shell.sh
-    echo "Bash worked, but ignoring"
+    :
   fi
 fi
 
@@ -40,7 +40,7 @@ alias dr="profilerate_docker_run -e 'PROFILERATE_LOGO= '"
 alias ke="profilerate_kubectl_exec"
 alias s="profilerate_ssh"
 
-# Aliases for nvim
+# Aliases for vim related things
 if [ -n "$(command -v nvim)" ]
 then
   alias vim=nvim
@@ -93,17 +93,22 @@ fi
 # Reset kitty term (otherwise ssh gets angry)
 export TERM="xterm"
 
+# This var is set in ~/.zshrc on my local machine
 if [ -n "$I_AM_LOCAL" ]
 then
+  # Local
   export PROFILERATE_LOGO=" "
 elif [ -n "$KUBERNETES_SERVICE_HOST" ]
 then
+  # Kubernetes
   export PROFILERATE_LOGO="󱃾 "
 elif [ -n "$SSH_CLIENT"  ]
 then
+  # SSH
   export PROFILERATE_LOGO="󰣀 "
 elif [ -z "$PROFILERATE_LOGO" ]
 then
+  # Don't know (Note that docker is set through the alias since it's difficult to guess when you're in docker
   export PROFILERATE_LOGO="󱚟 "
 fi
 
@@ -111,6 +116,8 @@ fi
 if [ "$PROFILERATE_SHELL" = "zsh" ]; then
   autoload -U colors 2>/dev/null && colors 2>/dev/null
   setopt PROMPT_SUBST
+
+  # For local, make the logo white, otherwise make it stand out
   if [ -n "$I_AM_LOCAL" ]
   then
     LOGO_PS1="$PROFILERATE_LOGO"
@@ -118,20 +125,27 @@ if [ "$PROFILERATE_SHELL" = "zsh" ]; then
     LOGO_PS1="%{$fg[red]%}${PROFILERATE_LOGO}"
   fi
 
+  # Logo + Logged in user
   PROMPT="${LOGO_PS1}%{$fg[cyan]%}%n"
 
   if [ -z "$I_AM_LOCAL" ]
   then
+    # For non-local, add the host in yellow
     PROMPT="$PROMPT%{$reset_color%}@%{$fg[yellow]%}%M"
   fi
 
+  # path
   PROMPT="$PROMPT%{$reset_color%}:%{$fg[green]%}%~"
 
+  # Add git prompt, if available
   if command -v "git_prompt_info" >/dev/null
   then
-    PROMPT="$PROMPT\$(git_prompt_info)"
+    ZSH_THEME_GIT_PROMPT_PREFIX=" %{$fg[magenta]%}git:("
+    ZSH_THEME_GIT_PROMPT_SUFFIX=")%{$reset_color%}"
+    PROMPT="$PROMPT%{$fg[magenta]%}\$(git_prompt_info)"
   fi
 
+  # and the final prompt
   PROMPT="$PROMPT%{$reset_color%}%(!.#.$) "
   export PS1=$PROMPT
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
