@@ -1,26 +1,72 @@
-### This is your file. Make modifications here
+# profilerate aliases
+alias de="profilerate_docker_exec"
+alias dr="profilerate_docker_run"
+alias ke="profilerate_kubectl_exec"
+alias s="profilerate_ssh"
 
-# Warning: make sure to use the most portable code in this file. If
-# you want to use something that is shell specific, source it in the if statement below
+# Aliases for nvim
+if [ -n "$(command -v nvim)" ]
+then
+  alias vim=nvim
+  alias vi=nvim
+  export EDITOR="nvim"
+elif [ -n "$(command -v vim)" ]
+then
+  alias vi=vim
+  export EDITOR="vim"
+elif [ -n "$(command -v vi)" ]
+then
+  export EDITOR="vi"
+fi
 
-### Global - Applies to all shells ###
-# Examples:
-# alias ls="ls -l"
-# alias dr="profilerate_docker_run"
-# alias de="profilerate_docker_exec"
+# Set Pager to less with case insensitive and some other features
+if [ -n "$(command -v less)" ]
+then
+  export LESS="-iXF"
+  export PAGER="less -iXF"
+  alias less="less -iXF"
+fi
+
+# use bat if it's available
+if [ -n "$(command -v bat)" ]
+then
+  export BAT_THEME="Dracula"
+  alias cat="bat"
+fi
+
+# use dust instead of du
+if [ -n "$(command -v dust)" ]
+then
+  alias du="dust"
+fi
+
+# use delta instead of diff
+if [ -n "$(command -v delta)" ]
+then
+  alias diff="delta"
+fi
+
+# color ls
+if ls --color=always >/dev/null 2>&1
+then
+  alias ls="ls -last --color=always"
+else
+  alias ls="ls -lastG"
+fi
+
+# Reset kitty term
+export TERM=xterm
 
 ### Shell specific configurations ###
 if [ "$PROFILERATE_SHELL" = "zsh" ]; then
-  # Put your zsh specific configuration here
-  :
-  # You can also create other filea to source and they'll run in the appropriate context
-  # (eg you can use zsh specific formatting/functions/etc)
-  # . $PROFILERATE_DIR/personal.zsh.sh
+  autoload -U colors && colors
+  export PS1="%{$fg[cyan]%}%n%{$reset_color%}@%{$fg[yellow]%}%M:%{$fg[green]%}%/%{$reset_color%}%(!.#.$) "
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
-  # Put your bash specific configuration here
-  :
+  export PS1="\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\h\[\e[0;93m\]:\[\e[0;92m\]\w\[\e[0m\]\[\e[0m\]$\[\e[0m\] \[\e[0m\]"
 else
-  # This is usually something like dash/almquist shell
-  # Put your most portable configuration here
-  :
+  export PS1='${USER:=$(whoami)}@${HOSTNAME:=$(hostname)}:$PWD\$ '
 fi
+
+# Debug
+echo "Shell: ${PROFILERATE_SHELL}"
+echo "Profilerate Dir: ${PROFILERATE_DIR}"
