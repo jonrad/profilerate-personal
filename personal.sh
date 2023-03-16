@@ -8,6 +8,9 @@ fi
 echo "Shell: ${PROFILERATE_SHELL}@${SHLVL}"
 echo "Profilerate Dir: ${PROFILERATE_DIR}"
 
+# Ignore files set to include README.md
+export _PROFILERATE_IGNORE_PATHS=".git/ .github/ .gitignore README.md"
+
 # I'm ok with using zsh and i'm ok with using bash. But using dash is not fun
 if [ ! "$PROFILERATE_SHELL" = "zsh" ] && [ ! "$PROFILERATE_SHELL" = "bash" ]; then
   if "$PROFILERATE_DIR/bin/bash" --version >/dev/null 2>&1; then
@@ -151,12 +154,18 @@ if [ "$PROFILERATE_SHELL" = "zsh" ]; then
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
   if [ -n "$I_AM_LOCAL" ]
   then
-    LOGO_PS1="\[\e[0;0m\]$PROFILERATE_LOGO"
+    LOGO_PS1="\[\e[0;0m\]${PROFILERATE_LOGO}"
   else
     LOGO_PS1="\[\e[0;91m\]${PROFILERATE_LOGO}"
   fi
   export PS1="${LOGO_PS1}\[\e[0;96m\]\u\[\e[0;97m\]@\[\e[0;93m\]\H\[\e[0;97m\]:\[\e[0;92m\]\w\[\e[0m\]$ "
 else
-  export PS1='${PROFILERATE_LOGO:-}[96m${USER:=$(whoami 2>/dev/null || echo who-am-i)}[97m@[93m${HOSTNAME:=$(hostname)}[97m:[92m$PWD[0m\$ '
+  if [ -n "$I_AM_LOCAL" ]
+  then
+    LOGO_PS1="${PROFILERATE_LOGO}"
+  else
+    LOGO_PS1="[91m${PROFILERATE_LOGO}"
+  fi
+  export PS1='$LOGO_PS1[96m${USER:=$(whoami 2>/dev/null || echo who-am-i)}[97m@[93m${HOSTNAME:=$(hostname)}[97m:[92m$PWD[0m<󰚌>$ '
 fi
 

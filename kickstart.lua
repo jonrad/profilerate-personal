@@ -2,12 +2,18 @@
   - https://learnxinyminutes.com/docs/lua/
 --]]
 --
+vim.filetype.add({
+  extension = {
+    ['bats'] = "bash"
+  }
+})
 
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are required (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
+
 
 -- Install package manager
 --    https://github.com/folke/lazy.nvim
@@ -380,7 +386,9 @@ end
 --  the `settings` field of the server config. You must look up that documentation yourself.
 
 local servers = {
-  bashls = {},
+  bashls = {
+    filetypes = { "sh", "bats" }
+  },
   omnisharp = {},
   cssls = {},
   dockerls = {},
