@@ -92,16 +92,17 @@ _profilerate_copy_hashed () {
 
   shift 2
 
-  cd "${PROFILERATE_DIR}" || return 1
-  COMMAND="
+  (
+    cd "${PROFILERATE_DIR}" || return 1
+    COMMAND="
 export PROFILERATE_DIR=\$(${_PROFILERATE_CREATE_DIR}) || return 1
 cd \$PROFILERATE_DIR
 echo '$(tar -c -z -f - -C "${PROFILERATE_DIR}/" $(_profilerate_excludes_tar) -h . 2>"${_PROFILERATE_STDERR}" | xxd -p)' | \
   xxd -r -p | tar --exclude ./ -o -x -z -f -
 cd - >/dev/null
-exec sh \${PROFILERATE_DIR}/shell.sh
+${PROFILERATE_PRECOMMAND}exec sh \${PROFILERATE_DIR}/shell.sh
 "
-  cd - >/dev/null || true
+  )
 
   "${INTERACTIVE_COMMAND}" "$@" sh -c "$COMMAND"
 }
@@ -122,7 +123,7 @@ _profilerate_copy_tar () {
     if tar -c -f - -C "${PROFILERATE_DIR}/" $(_profilerate_excludes_tar) -h . 2>"${_PROFILERATE_STDERR}" | \
       "${NONINTERACTIVE_COMMAND}" "$@" sh -c ":; cd ${DEST} && tar --exclude ./ -o -x -f -" >"${_PROFILERATE_STDERR}" 2>&1
     then
-      "${INTERACTIVE_COMMAND}" "$@" "${DEST}/shell.sh"
+      "${INTERACTIVE_COMMAND}" "$@" sh -c ":;${PROFILERATE_PRECOMMAND}exec sh '${DEST}/shell.sh'"
       return 0
     fi
   fi
@@ -139,57 +140,62 @@ _profilerate_copy_manual () {
 
   shift 2
 
-  cd "${PROFILERATE_DIR}" || return 1
-  FILES=$(find . $(_profilerate_excludes_find))
+  DEST=$(
+    cd "${PROFILERATE_DIR}"
+    FILES=$(find . $(_profilerate_excludes_find))
 
-  # this is usually fast enough that we don't need to warn the user
-  # except when there's a lot of files
-  if [ "$(echo "${FILES}" | wc -l 2>"$_PROFILERATE_STDERR")" -gt 20 ]
-  then
-    echo "profilerate failed to use tar to copy files. Using manual transfer, which may take some time since you have many files to transfer">&2
-  fi
-
-  MKDIR=""
-  while read -r FILENAME
-  do
-    if [ -d "${FILENAME}" ]
+    # this is usually fast enough that we don't need to warn the user
+    # except when there's a lot of files
+    if [ "$(echo "${FILES}" | wc -l 2>"$_PROFILERATE_STDERR")" -gt 20 ]
     then
-      if [ "${FILENAME}" != "." ]
+      echo "Using manual transfer, which may take some time since you have many files to transfer">&2
+    fi
+
+    MKDIR=""
+    while read -r FILENAME
+    do
+      if [ -d "${FILENAME}" ]
       then
-        # if you know a better, more portable and efficient way to check file perms, let me know
-        MKDIR="${MKDIR}mkdir -m $(($([ -r "${FILENAME}" ] && echo 4) + $([ -w "${FILENAME}" ] && echo 2) + $([ -x "${FILENAME}" ] && echo 1) + 0))00 -p \"${FILENAME}\" && "
+        if [ "${FILENAME}" != "." ]
+        then
+          # if you know a better, more portable and efficient way to check file perms, let me know
+          MKDIR="${MKDIR}mkdir -m $(($([ -r "${FILENAME}" ] && echo 4) + $([ -w "${FILENAME}" ] && echo 2) + $([ -x "${FILENAME}" ] && echo 1) + 0))00 -p \"${FILENAME}\" && "
+        fi
       fi
-    fi
-  done<<EOF
+    done<<EOF
 ${FILES}
 EOF
 
-  DEST=$("${NONINTERACTIVE_COMMAND}" "$@" sh -c ":;DEST=\$(${_PROFILERATE_CREATE_DIR}) && cd \${DEST} && ${MKDIR} echo \${DEST}" 2>"${_PROFILERATE_STDERR}")
+    DEST=$("${NONINTERACTIVE_COMMAND}" "$@" sh -c ":;DEST=\$(${_PROFILERATE_CREATE_DIR}) && cd \${DEST} && ${MKDIR} echo \${DEST}" 2>"${_PROFILERATE_STDERR}")
+    echo $DEST
 
-  if [ $? -ne 0 ]
+    if [ $? -ne 0 ]
+    then
+      return 1
+    fi
+
+    CHMOD=""
+    while read -r FILENAME
+    do
+      if [ -f "${FILENAME}" ]
+      then
+        CHMOD="${CHMOD}chmod $(($(test -r "${FILENAME}" && echo 4) + $(test -w "${FILENAME}" && echo 2) + $(test -x "${FILENAME}" && echo 1) + 0))00 \"${FILENAME}\";"
+        $NONINTERACTIVE_COMMAND "$@" sh -c ":;cat > ${DEST}/${FILENAME}" < "${FILENAME}"
+      fi
+    done<<EOF
+${FILES}
+EOF
+
+    $NONINTERACTIVE_COMMAND "$@" sh -c ":;cd ${DEST};${CHMOD}"
+  )
+
+  if [ $? = 0 ]
   then
-    cd - >/dev/null
-    return 1
+    "${INTERACTIVE_COMMAND}" "$@" sh -c "${PROFILERATE_PRECOMMAND}exec ${DEST}/shell.sh"
+    return 0
   fi
 
-  CHMOD=""
-  while read -r FILENAME
-  do
-    if [ -f "${FILENAME}" ]
-    then
-      CHMOD="${CHMOD}chmod $(($(test -r "${FILENAME}" && echo 4) + $(test -w "${FILENAME}" && echo 2) + $(test -x "${FILENAME}" && echo 1) + 0))00 \"${FILENAME}\";"
-      $NONINTERACTIVE_COMMAND "$@" sh -c ":;cat > ${DEST}/${FILENAME}" < "${FILENAME}"
-    fi
-  done<<EOF
-${FILES}
-EOF
-
-  $NONINTERACTIVE_COMMAND "$@" sh -c ":;cd ${DEST};${CHMOD}"
-
-  cd - >/dev/null || true
-
-  "${INTERACTIVE_COMMAND}" "$@" "${DEST}/shell.sh"
-  return 0
+  return 1
 }
 
 _profilerate_copy () {
@@ -197,6 +203,13 @@ _profilerate_copy () {
   INTERACTIVE_COMMAND="$2"
 
   shift 2
+
+  if [ -n "$PROFILERATE_PRECOMMAND" ]
+  then
+    _PROFILERATE_PRECOMMAND="$PROFILERATE_PRECOMMAND;"
+  else
+    _PROFILERATE_PRECOMMAND=""
+  fi
 
   # zsh only, make word splitting same as bash
   setopt LOCAL_OPTIONS shwordsplit 2>/dev/null
@@ -212,7 +225,7 @@ _profilerate_copy () {
       # the args the user passed in
       # an optional DEST as an environment variable if the remote destination already exists and is well defined
       # it MAY return the dest
-      if $FUNCTION $NONINTERACTIVE_COMMAND $INTERACTIVE_COMMAND "$@"
+      if PROFILERATE_PRECOMMAND=$_PROFILERATE_PRECOMMAND $FUNCTION $NONINTERACTIVE_COMMAND $INTERACTIVE_COMMAND "$@"
       then
         return 0
       fi
@@ -221,8 +234,9 @@ _profilerate_copy () {
     fi
   done
 
+  COMMAND='$(command -v "${SHELL:-zsh}" || command -v zsh || command -v bash || command -v sh) -l'
   echo Failed to profilerate, starting standard shell >&2 && 
-    $INTERACTIVE_COMMAND "$@" sh -c '$(command -v "${SHELL:-zsh}" || command -v zsh || command -v bash || command -v sh) -l'
+    $INTERACTIVE_COMMAND "$@" sh -c "${_PROFILERATE_PRECOMMAND}$COMMAND"
 
   return 1
 }

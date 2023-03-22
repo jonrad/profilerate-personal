@@ -1,10 +1,11 @@
-# Debugging for profilerate
 if [ -w "/dev/stderr" ]; then
+  # Uncomment to turn on noisy debugging for profilerate
   #export _PROFILERATE_STDERR=/dev/stderr
   :
 fi
 
 # Debugging for profilerate
+# I Keep this on, but you can delete
 echo "Shell: ${PROFILERATE_SHELL}@${SHLVL}"
 echo "Profilerate Dir: ${PROFILERATE_DIR}"
 
@@ -22,9 +23,55 @@ if [ ! "$PROFILERATE_SHELL" = "zsh" ] && [ ! "$PROFILERATE_SHELL" = "bash" ]; th
   fi
 fi
 
-# Used by some applications to store configs. Standardize this (macs are silly)
+# Helper function to convert a hex in the format FF (no 0x or #) to decimal
+convert_hex () {
+  printf "%d\n" "0x${1}"
+}
+
+# Set kitty tab color. Eg set_tab_color "eeeeee" "999999"
+set_tab_color () {
+  printf "\eP@kitty-cmd{\"cmd\":\"set-tab-color\",\"version\":[0,14,2],\"no_response\": true,\"payload\":{\"colors\": { \"active_bg\": \"$(convert_hex $1)\", \"inactive_bg\": \"$(convert_hex $2)\" }}}\e\\"
+}
+
+reset_terminal="printf '\\x1b]11;${PROFILERATE_BACKGROUND:-#000}\\x1b\\\\'; set_tab_color ${PROFILERATE_TAB_ACTIVE:-eeeeee} ${PROFILERATE_TAB_INACTIVE:-999999}"
+# profilerate aliases
+dr () {
+  # Set background color to #200
+  printf '\x1b]11;#200\x1b\\'
+  # Set tab colors
+  set_tab_color "FFAAAA" "CC7777"
+  # Run the normal command, but pass the env variables so that when we reset, we use the right values (for the case of jump hosts)
+  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#200" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_run "$@"
+  # reset background color
+  eval "$reset_terminal"
+}
+de () {
+  printf '\x1b]11;#200\x1b\\'
+  set_tab_color "FFAAAA" "CC7777"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#200" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_exec "$@"
+  eval "$reset_terminal"
+}
+ke () {
+  printf '\x1b]11;#020\x1b\\'
+  set_tab_color "AAFFAA" "77CC77"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#020" PROFILERATE_TAB_ACTIVE="AAFFAA" PROFILERATE_TAB_INACTIVE="77CC77" PROFILERATE_LOGO="󱃾 "' profilerate_kubectl_exec "$@"
+  eval "$reset_terminal"
+}
+s () {
+  printf '\x1b]11;#002\x1b\\'
+  set_tab_color "AAAAFF" "7777CC"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#002" PROFILERATE_TAB_ACTIVE="AAAAFF" PROFILERATE_TAB_INACTIVE="7777CC" PROFILERATE_LOGO="󰣀 "' profilerate_ssh "$@"
+  eval "$reset_terminal"
+}
+
+# kubernetes aliases
+alias k="kubectl"
+
+# TODO: research implications of doing this. You should probably comment this out
+# Used by some applications to store configs. Standardize this
 export XDG_CONFIG_HOME="$HOME/.config"
 
+# Try for some cross shell keybindings
 if [ -n "$(command -v bindkey)" ]
 then
   # zsh key bindings
@@ -37,24 +84,21 @@ then
   bind '"\e[1;3C" forward-word'
 fi
 
-# profilerate aliases
-alias de="profilerate_docker_exec -e 'PROFILERATE_LOGO= '"
-alias dr="profilerate_docker_run -e 'PROFILERATE_LOGO= '"
-alias ke="profilerate_kubectl_exec"
-alias s="profilerate_ssh"
-
 # Aliases for vim related things
 if [ -n "$(command -v nvim)" ]
 then
+  # Always use nvim if available
   alias vim=nvim
   alias vi=nvim
   export EDITOR="nvim"
 elif [ -n "$(command -v vim)" ]
 then
+  # Otherwise always use vim
   alias vi=vim
   export EDITOR="vim"
 elif [ -n "$(command -v vi)" ]
 then
+  # Otherwise be sad
   export EDITOR="vi"
 fi
 
@@ -99,19 +143,11 @@ export TERM="xterm"
 # This var is set in ~/.zshrc on my local machine
 if [ -n "$I_AM_LOCAL" ]
 then
-  # Local
+  # On local, set the logo to an apple
   export PROFILERATE_LOGO=" "
-elif [ -n "$KUBERNETES_SERVICE_HOST" ]
-then
-  # Kubernetes
-  export PROFILERATE_LOGO="󱃾 "
-elif [ -n "$SSH_CLIENT"  ]
-then
-  # SSH
-  export PROFILERATE_LOGO="󰣀 "
 elif [ -z "$PROFILERATE_LOGO" ]
 then
-  # Don't know (Note that docker is set through the alias since it's difficult to guess when you're in docker
+  # If no logo was set, use something...
   export PROFILERATE_LOGO="󱚟 "
 fi
 
@@ -150,8 +186,27 @@ if [ "$PROFILERATE_SHELL" = "zsh" ]; then
 
   # and the final prompt
   PROMPT="$PROMPT%{$reset_color%}%(!.#.$) "
-  export PS1=$PROMPT
+  PIPENV_PROMPT='$(test -n "$PYENV_DIR" && echo "($(basename "$PYENV_DIR")) ")'
+  export PS1="$PIPENV_PROMPT$PROMPT"
+
+  # kubernetes auto complete in bash
+  if [ -n "$(command -v kubectl)" ]
+  then
+    source <(kubectl completion zsh)
+    complete -F __start_kubectl k
+  fi
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
+  # Autocomplete for bash
+  [ -f /opt/homebrew/etc/bash_completion ] && . /opt/homebrew/etc/bash_completion
+  [ -f /usr/local/etc/bash_completion ] && . /usr/local/etc/bash_completion
+
+  # kubernetes auto complete in bash
+  if [ -n "$(command -v kubectl)" ]
+  then
+    source <(kubectl completion bash)
+    complete -F __start_kubectl k
+  fi
+
   if [ -n "$I_AM_LOCAL" ]
   then
     LOGO_PS1="\[\e[0;0m\]${PROFILERATE_LOGO}"
