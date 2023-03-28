@@ -179,7 +179,8 @@ require('lazy').setup({
     config = function ()
       require('neo-tree').setup {}
     end,
-  }
+  },
+  { "powerman/vim-plugin-AnsiEsc" }
 
 }, {})
 
