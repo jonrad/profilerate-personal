@@ -23,6 +23,8 @@ if [ ! "$PROFILERATE_SHELL" = "zsh" ] && [ ! "$PROFILERATE_SHELL" = "bash" ]; th
   fi
 fi
 
+alias rec='mkdir -p -m 700 ~/recordings && script -aq ~/recordings/term.log-$(date "+%Y%m%d-%H-%M")'
+
 # Helper function to convert a hex in the format FF (no 0x or #) to decimal
 convert_hex () {
   printf "%d\n" "0x${1}"
@@ -30,37 +32,38 @@ convert_hex () {
 
 # Set kitty tab color. Eg set_tab_color "eeeeee" "999999"
 set_tab_color () {
-  printf "\eP@kitty-cmd{\"cmd\":\"set-tab-color\",\"version\":[0,14,2],\"no_response\": true,\"payload\":{\"colors\": { \"active_bg\": \"$(convert_hex $1)\", \"inactive_bg\": \"$(convert_hex $2)\" }}}\e\\"
+  printf "\eP@kitty-cmd{\"cmd\":\"set-tab-color\",\"version\":[0,14,2],\"no_response\": true,\"payload\":{\"colors\": { \"active_bg\": \"$(convert_hex $1)\", \"inactive_bg\": \"$(convert_hex $2)\" },\"self\": true}}\e\\"
 }
 
-reset_terminal="printf '\\x1b]11;${PROFILERATE_BACKGROUND:-#000}\\x1b\\\\'; set_tab_color ${PROFILERATE_TAB_ACTIVE:-eeeeee} ${PROFILERATE_TAB_INACTIVE:-999999}"
+reset_terminal="printf '\\x1b]12;${PROFILERATE_CURSOR:-#FFF}\\x1b\\\\'; set_tab_color ${PROFILERATE_TAB_ACTIVE:-eeeeee} ${PROFILERATE_TAB_INACTIVE:-999999}"
 # profilerate aliases
 dr () {
+  #trap "$reset_terminal" EXIT
   # Set background color to #200
-  printf '\x1b]11;#200\x1b\\'
+  printf '\x1b]12;#F00\x1b\\'
   # Set tab colors
   set_tab_color "FFAAAA" "CC7777"
   # Run the normal command, but pass the env variables so that when we reset, we use the right values (for the case of jump hosts)
-  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#200" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_run "$@"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_CURSOR="#F00" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_run "$@"
   # reset background color
   eval "$reset_terminal"
 }
 de () {
-  printf '\x1b]11;#200\x1b\\'
+  printf '\x1b]12;#F00\x1b\\'
   set_tab_color "FFAAAA" "CC7777"
-  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#200" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_exec "$@"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_CURSOR="#F00" PROFILERATE_TAB_ACTIVE="FFAAAA" PROFILERATE_TAB_INACTIVE="CC7777" PROFILERATE_LOGO=" "' profilerate_docker_exec "$@"
   eval "$reset_terminal"
 }
 ke () {
-  printf '\x1b]11;#020\x1b\\'
+  printf '\x1b]12;#0F0\x1b\\'
   set_tab_color "AAFFAA" "77CC77"
-  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#020" PROFILERATE_TAB_ACTIVE="AAFFAA" PROFILERATE_TAB_INACTIVE="77CC77" PROFILERATE_LOGO="󱃾 "' profilerate_kubectl_exec "$@"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_CURSOR="#0F0" PROFILERATE_TAB_ACTIVE="AAFFAA" PROFILERATE_TAB_INACTIVE="77CC77" PROFILERATE_LOGO="󱃾 "' profilerate_kubectl_exec "$@"
   eval "$reset_terminal"
 }
 s () {
-  printf '\x1b]11;#002\x1b\\'
+  printf '\x1b]12;#00F\x1b\\'
   set_tab_color "AAAAFF" "7777CC"
-  PROFILERATE_PRECOMMAND='export PROFILERATE_BACKGROUND="#002" PROFILERATE_TAB_ACTIVE="AAAAFF" PROFILERATE_TAB_INACTIVE="7777CC" PROFILERATE_LOGO="󰣀 "' profilerate_ssh "$@"
+  PROFILERATE_PRECOMMAND='export PROFILERATE_CURSOR="#00F" PROFILERATE_TAB_ACTIVE="AAAAFF" PROFILERATE_TAB_INACTIVE="7777CC" PROFILERATE_LOGO="󰣀 "' profilerate_ssh "$@"
   eval "$reset_terminal"
 }
 
@@ -189,11 +192,14 @@ if [ "$PROFILERATE_SHELL" = "zsh" ]; then
   PIPENV_PROMPT='$(test -n "$PYENV_DIR" && echo "($(basename "$PYENV_DIR")) ")'
   export PS1="$PIPENV_PROMPT$PROMPT"
 
-  # kubernetes auto complete in bash
+  # kubernetes auto complete in zsh
   if [ -n "$(command -v kubectl)" ]
   then
     source <(kubectl completion zsh)
-    complete -F __start_kubectl k
+    if [ -n "$(command -v complete)" ]
+    then
+      complete -F __start_kubectl k
+    fi
   fi
 elif [ "$PROFILERATE_SHELL" = "bash" ]; then
   # Autocomplete for bash
@@ -204,7 +210,10 @@ elif [ "$PROFILERATE_SHELL" = "bash" ]; then
   if [ -n "$(command -v kubectl)" ]
   then
     source <(kubectl completion bash)
-    complete -F __start_kubectl k
+    if [ -n "$(command -v complete)" ]
+    then
+      complete -F __start_kubectl k
+    fi
   fi
 
   if [ -n "$I_AM_LOCAL" ]
